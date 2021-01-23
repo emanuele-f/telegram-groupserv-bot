@@ -1,0 +1,14 @@
+{
+  "name": "telegram-groupserv-bot",
+  "version": "1.0.0",
+  "description": "Telegram simple group management bot",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Emanuele Faranda",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "telegraf": "^4.0.1"
+  }
+}
