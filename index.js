@@ -33,9 +33,11 @@ const bot = new Telegraf(config.BOT_TOKEN);
 const admin = new Composer();
 const user = new Composer();
 
+console.debug = () => {}
+
 /* ************************************************** */
 
-admin.start((ctx) => ctx.reply('BzzBzz.. hi!'));
+admin.start((ctx) => ctx.reply('BzzBzz.. up and running!'));
 
 admin.help((ctx) => {
   ctx.reply(`*Commands*
@@ -83,7 +85,7 @@ function periodicCleanup() {
   const now = (new Date()).getTime();
   const max_age = config.MAX_NEWUSER_AGE_SEC * 1000;
 
-  console.log("Periodic cleanp running");
+  console.debug("Periodic cleanup running");
 
   for(const user of Object.values(new_users)) {
     if((now - user.first_seen) >= max_age) {
@@ -98,7 +100,7 @@ function periodicCleanup() {
       delete pending_users[user.id];
 
       console.log(`Banning user ${user.str()}`);
-      user.ctx.kickChatMember(user.id);
+      bot.telegram.kickChatMember(user.chat_id, user.id);
     }
   }
 }
@@ -131,7 +133,7 @@ user.on('new_chat_members', (ctx) => {
   }
 
   for(const new_user of ctx.message.new_chat_members) {
-    const user = User.from_message(new_user, ctx);
+    const user = User.from_message(new_user, ctx.chat.id);
 
     console.log(`${user.str()} joined group`);
 
@@ -151,7 +153,7 @@ user.on('new_chat_members', (ctx) => {
 /* ************************************************** */
 
 user.on('left_chat_member', (ctx) => {
-  const user = User.from_message(ctx.message.left_chat_member, ctx);
+  const user = User.from_message(ctx.message.left_chat_member, ctx.chat.id);
 
   console.log(`${user.str()} left group`);
 

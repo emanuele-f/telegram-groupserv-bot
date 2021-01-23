@@ -1,0 +1,14 @@
+[Unit]
+Description=Telegram simple group management bot
+After=network.target
+
+[Service]
+Type=simple
+User=emanuele
+WorkingDirectory=/home/emanuele/telegram-groupserv-bot
+ExecStart=/bin/node --unhandled-rejections=strict ./index.js
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

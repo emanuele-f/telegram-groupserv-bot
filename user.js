@@ -19,22 +19,22 @@
  */
 
 class User {
-  constructor(id, is_bot, username, name, ctx) {
+  constructor(id, is_bot, username, name, chat_id) {
     this.id = id;
     this.is_bot = is_bot;
     this.name = name;
     this.username = username;
-    this.ctx = ctx;
+    this.chat_id = chat_id;
     this.first_seen = (new Date()).getTime();
   }
 
-  static from_message(msg, ctx) {
+  static from_message(msg, chat_id) {
     let name = msg.first_name;
 
     if(msg.last_name)
       name = name + " " + msg.last_name;
 
-    return new User(msg.id, msg.is_bot, msg.username, name, ctx)
+    return new User(msg.id, msg.is_bot, msg.username, name, chat_id)
   }
 
   getName() {
