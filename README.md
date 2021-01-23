@@ -1,6 +1,6 @@
-A bot to manage telegram groups. Only a single group is supported!
+A bot to manage telegram groups. Only a single group at a time is supported!
 
-Features:
+# Features
   - Detect and ban possibly spamming users
   - Prevent user join/leave notifications
 
@@ -21,4 +21,5 @@ Spammers are identified via the following methods:
 # Useful references
 
 https://github.com/ZenchainSoftware/telegram-bot-monitor
+
 https://github.com/gdgpisa/gdgpisausermanager/blob/master/gdgpisausermanager.py
