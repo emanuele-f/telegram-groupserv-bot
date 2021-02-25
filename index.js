@@ -137,9 +137,9 @@ user.on('new_chat_members', (ctx) => {
 
     console.log(`${user.str()} joined group`);
 
-    if(user.is_bot && config.BAN_BOTS) {
+    if(config.BAN_BOTS && user.is_bot) {
       if(config.WHITELISTED_BOT_IDS[user.id])
-        return;
+        continue;
       else {
         console.log(`Banning bot ${user.str()}`);
         ctx.kickChatMember(user.id);
@@ -211,8 +211,18 @@ user.on('text', (ctx) => {
 
   user = new_users[uid];
 
-  if(!user)
+  if(!user) {
+    // Message is from an existing user
+    if(config.BAN_BOTS && ctx.message.from.is_bot &&
+        !config.WHITELISTED_BOT_IDS[uid]) {
+      const user = User.from_message(ctx.message.from, ctx.chat.id);
+      console.log(`Banning bot ${user.str()}`);
+
+      ctx.kickChatMember(user.id);
+    }
+
     return;
+  }
 
   const now = (new Date()).getTime();
   const delta_s = Math.floor((now - user.first_seen) / 1000);
