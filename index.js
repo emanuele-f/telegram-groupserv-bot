@@ -39,10 +39,10 @@ console.debug = () => {}
 
 admin.start((ctx) => ctx.reply('BzzBzz.. up and running!'));
 
-admin.help((ctx) => {
-  ctx.reply(`*Commands*
+/*admin.help((ctx) => {
+  ctx.replyWithMarkdown(`*Commands*
 /pending get list of new/pending users`);
-});
+});*/
 
 /* ************************************************** */
 
@@ -104,6 +104,12 @@ function periodicCleanup() {
     }
   }
 }
+
+/* ************************************************** */
+
+user.help((ctx) => {
+  ctx.replyWithMarkdown(config.HELP);
+});
 
 /* ************************************************** */
 

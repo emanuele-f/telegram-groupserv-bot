@@ -19,4 +19,7 @@ config.AUTO_REPLY = [
   { match:/^man!$/, text:"Check out the user manual: https://example.org", overwrite:true },
 ];
 
+config.HELP = `You can use the following commands:
+\`!man\` - link the user manual`;
+
 module.exports = config;
