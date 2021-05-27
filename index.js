@@ -196,11 +196,12 @@ function containsUrl(msg) {
 
 /* ************************************************** */
 
-async function check_autoreply(ctx) {
+async function check_autoreply(ctx, is_new) {
   const msg = ctx.message.text;
+  console.log(is_new);
 
   for(const rinfo of config.AUTO_REPLY) {
-    if(msg.match(rinfo.match)) {
+    if((is_new || !rinfo.new_only) && msg.match(rinfo.match)) {
       console.debug(`Message matches a regex: ${msg}`);
 
       if(rinfo.text) {
@@ -247,7 +248,7 @@ user.on('text', (ctx) => {
       ctx.kickChatMember(user.id);
     }
 
-    check_autoreply(ctx);
+    check_autoreply(ctx, false);
 
     return;
   }
@@ -277,7 +278,7 @@ user.on('text', (ctx) => {
     return;
   }
 
-  check_autoreply(ctx);
+  check_autoreply(ctx, true);
 });
 
 /* ************************************************** */
