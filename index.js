@@ -196,6 +196,32 @@ function containsUrl(msg) {
 
 /* ************************************************** */
 
+async function check_autoreply(ctx) {
+  const msg = ctx.message.text;
+
+  for(const rinfo of config.AUTO_REPLY) {
+    if(msg.match(rinfo.match)) {
+      console.debug(`Message matches a regex: ${msg}`);
+
+      if(rinfo.text) {
+        let txt = rinfo.text;
+
+        if(rinfo.autoquote)
+          txt = `@` + ctx.message.from.username + " " + txt;
+
+        await ctx.reply(txt);
+      }
+
+      if(rinfo.overwrite)
+        ctx.deleteMessage();
+
+      break;
+    }
+  }
+}
+
+/* ************************************************** */
+
 user.on('text', (ctx) => {
   const uid = ctx.message.from.id;
   let user = pending_users[uid];
@@ -220,6 +246,8 @@ user.on('text', (ctx) => {
 
       ctx.kickChatMember(user.id);
     }
+
+    check_autoreply(ctx);
 
     return;
   }
@@ -248,6 +276,8 @@ user.on('text', (ctx) => {
     verifyUser(ctx, user);
     return;
   }
+
+  check_autoreply(ctx);
 });
 
 /* ************************************************** */

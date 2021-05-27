@@ -3,6 +3,7 @@ A bot to manage telegram groups. Only a single group at a time is supported!
 # Features
   - Detect and ban possibly spamming users
   - Prevent user join/leave notifications
+  - Automatic replies by regex match
 
 # Requirements:
   - Bot must be an admin of the group
