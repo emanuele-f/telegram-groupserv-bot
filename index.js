@@ -19,7 +19,6 @@
  */
 
 const { Telegraf, Markup, Composer } = require('telegraf');
-const config = require('./config');
 const User = require('./user');
 
 /* ************************************************** */
@@ -28,6 +27,8 @@ const new_users = {};
 const pending_users = {};
 
 /* ************************************************** */
+
+const config = require((process.argv.length == 3) ? process.argv[2] : './config');
 
 const bot = new Telegraf(config.BOT_TOKEN);
 const admin = new Composer();
@@ -108,7 +109,8 @@ function periodicCleanup() {
 /* ************************************************** */
 
 user.help((ctx) => {
-  ctx.replyWithMarkdown(config.HELP);
+  if(config.HELP)
+    ctx.replyWithMarkdown(config.HELP);
 });
 
 /* ************************************************** */
@@ -204,7 +206,6 @@ function containsUrl(msg) {
 
 async function check_autoreply(ctx, is_new) {
   const msg = ctx.message.text;
-  console.log(is_new);
 
   for(const rinfo of config.AUTO_REPLY) {
     if((is_new || !rinfo.new_only) && msg.match(rinfo.match)) {
