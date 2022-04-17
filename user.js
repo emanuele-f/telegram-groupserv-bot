@@ -38,7 +38,7 @@ class User {
   }
 
   getName() {
-    return(this.username || this.name);
+    return(this.username ? `@${this.username}` : this.name);
   }
 
   str() {

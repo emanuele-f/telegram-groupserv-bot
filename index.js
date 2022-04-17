@@ -23,8 +23,9 @@ const User = require('./user');
 
 /* ************************************************** */
 
-const new_users = {};
-const pending_users = {};
+const new_users = {};     // uid -> User
+const pending_users = {}; // uid -> User
+const active_users = {};  // uid -> last_seen
 
 /* ************************************************** */
 
@@ -38,7 +39,7 @@ console.debug = () => {}
 
 /* ************************************************** */
 
-admin.start((ctx) => ctx.reply('BzzBzz.. up and running!'));
+admin.start((ctx) => ctx.reply(`[chatid=${ctx.chat.id}] BzzBzz.. up and running!`));
 
 /*admin.help((ctx) => {
   ctx.replyWithMarkdown(`*Commands*
@@ -70,7 +71,7 @@ admin.command('pending', (ctx) => {
 
 async function verifyUser(ctx, user) {
   const msg = await ctx.reply(
-    `Welcome ${user.name}! Please click the button below.`,
+    `Hi ${user.name}! Please click the button below.`,
 
     Markup.inlineKeyboard([
       Markup.button.callback('Confirm', 'user_confirm')
@@ -82,9 +83,32 @@ async function verifyUser(ctx, user) {
 
 /* ************************************************** */
 
+async function logMessage(msg) {
+  console.log(msg);
+
+  // Notify to log chats
+  for(let i=0; i<config.LOG_CHAT_IDS.length; i++) {
+    const chatid = config.LOG_CHAT_IDS[i];
+
+    // https://telegraf.js.org/classes/Telegram.html#sendMessage
+    try {
+      await bot.telegram.sendMessage(chatid, msg);
+    } catch(e) {}
+  }
+}
+
+/* ************************************************** */
+
+async function notifyBannedUser(user, reason) {
+  await logMessage(`Banned user ${user.str()}, reason: ${reason}`);
+}
+
+/* ************************************************** */
+
 function periodicCleanup() {
   const now = (new Date()).getTime();
   const max_age = config.MAX_NEWUSER_AGE_SEC * 1000;
+  const inactive_age = config.ACTIVE_USER_TIMEOUT * 1000;
 
   console.debug("Periodic cleanup running");
 
@@ -97,11 +121,18 @@ function periodicCleanup() {
 
   for(const user of Object.values(pending_users)) {
     if((now - user.first_seen) >= max_age) {
-      console.log(`Pending_user not verified: ${user.str()}`);
       delete pending_users[user.id];
+      //bot.telegram.kickChatMember(user.chat_id, user.id);
+      logMessage(`user did not perform verification on time: ${user.str()}`);
+    }
+  }
 
-      console.log(`Banning user ${user.str()}`);
-      bot.telegram.kickChatMember(user.chat_id, user.id);
+  for(const uid of Object.keys(active_users)) {
+    const last_seen = active_users[uid];
+
+    if((now - last_seen) >= inactive_age) {
+      console.debug(`Purging inactive user [uid=${uid}]`);
+      delete active_users[uid];
     }
   }
 }
@@ -129,6 +160,8 @@ user.action('user_confirm', (ctx) => {
   delete pending_users[uid];
 
   ctx.deleteMessage(btn_msg.message_id);
+
+  active_users[uid] = (new Date()).getTime();
 });
 
 /* ************************************************** */
@@ -177,15 +210,21 @@ user.on('left_chat_member', (ctx) => {
 
 /* ************************************************** */
 
-function containsBlacklisted(text) {
-  for(const word of config.BLACKLISTED_WORDS) {
+function getBlacklistedWord(text, wordlist) {
+  for(const word of wordlist) {
     const r = new RegExp("\\b" + word + "\\b", 'ig');
 
     if(text.match(r))
-      return true;
+      return word;
   }
 
   return false;
+}
+
+/* ************************************************** */
+
+function isBlacklistedChannel(channel) {
+  return config.BLACKLISTED_CHANNELS.indexOf(channel) != -1;
 }
 
 /* ************************************************** */
@@ -204,7 +243,7 @@ function containsUrl(msg) {
 
 /* ************************************************** */
 
-async function check_autoreply(ctx, is_new) {
+async function checkAutoreply(ctx, is_new) {
   const msg = ctx.message.text;
 
   for(const rinfo of config.AUTO_REPLY) {
@@ -230,54 +269,67 @@ async function check_autoreply(ctx, is_new) {
 
 /* ************************************************** */
 
+function banUnverifiedUser(user) {
+  // If user has a pending verification (must click button), then ban him
+  console.warn(`${user.str()} (unverified)] says: ${ctx.message.text}`);
+
+  ctx.kickChatMember(user.id);
+  notifyBannedUser(user, "sent another message without verifying");
+  return;
+}
+
+/* ************************************************** */
+
 user.on('text', (ctx) => {
   const uid = ctx.message.from.id;
-  let user = pending_users[uid];
-
-  if(user) {
-    console.warn(`${user.str()} (unverified)] says: ${ctx.message.text}`);
-    ctx.deleteMessage();
-
-    console.log(`Banning user ${user.str()}`);
-    ctx.kickChatMember(uid);
-    return;
-  }
-
-  user = new_users[uid];
-
-  if(!user) {
-    // Message is from an existing user
-    if(config.BAN_BOTS && ctx.message.from.is_bot &&
-        !config.WHITELISTED_BOT_IDS[uid]) {
-      const user = User.from_message(ctx.message.from, ctx.chat.id);
-      console.log(`Banning bot ${user.str()}`);
-
-      ctx.kickChatMember(user.id);
-    }
-
-    check_autoreply(ctx, false);
-
-    return;
-  }
-
+  let user = null;
+  let bl_word = null;
+  let is_new_user = false;
+  const is_inactive_user = !active_users[uid];
   const now = (new Date()).getTime();
-  const delta_s = Math.floor((now - user.first_seen) / 1000);
 
-  console.log(`${user.str()} first message after ${delta_s}s: ${ctx.message.text}`);
-
-  // user is not new anymore
-  delete new_users[uid];
-
-  if(containsBlacklisted(ctx.message.text)) {
-    console.log(`${user.str()} sent a blacklisted word`);
+  // Check message from pending-verification user
+  if((user = pending_users[uid])) {
     ctx.deleteMessage();
-
-    console.log(`Banning user ${user.str()}`);
-    ctx.kickChatMember(uid);
+    banUnverifiedUser(user);
     return;
   }
 
-  if(containsUrl(ctx.message)) {
+  // Check message from bot
+  if(config.BAN_BOTS && ctx.message.from.is_bot &&
+        !config.WHITELISTED_BOT_IDS[uid]) {
+    console.log(`Banning bot ${user.str()}`);
+    ctx.deleteMessage();
+    ctx.kickChatMember(user.id);
+    return;
+  }
+
+  // Check if user is new
+  if((user = new_users[uid])) {
+    const delta_s = Math.floor((now - user.first_seen) / 1000);
+    console.log(`${user.str()} first message after ${delta_s}s: ${ctx.message.text}`);
+
+    delete new_users[uid];
+    is_new_user = true;
+  } else
+    user = User.from_message(ctx.message.from, ctx.chat.id);
+
+  // Check blacklist
+  if(!bl_word && is_new_user)
+    bl_word = getBlacklistedWord(ctx.message.text, config.SUSPICIOUS_WORDS);
+
+  if(!bl_word && is_inactive_user)
+    bl_word = getBlacklistedWord(ctx.message.text, config.BLACKLISTED_WORDS);
+
+  if(bl_word) {
+    ctx.deleteMessage();
+    ctx.kickChatMember(uid);
+    notifyBannedUser(user, `sent blacklisted word "${bl_word}"`);
+    return;
+  }
+
+  // Check for URLs
+  if(is_inactive_user && containsUrl(ctx.message)) {
     console.log(`${user.str()} sent URL, starting verification`);
     ctx.deleteMessage();
 
@@ -285,7 +337,32 @@ user.on('text', (ctx) => {
     return;
   }
 
-  check_autoreply(ctx, true);
+  // Check for forwarded messages from channels
+  const fwd_chat = ctx.message.forward_from_chat;
+
+  if(fwd_chat && (fwd_chat.type === "channel")) {
+    // This message was forwarded from a channel, very likely spam
+    if(isBlacklistedChannel(fwd_chat.username)) {
+      ctx.deleteMessage();
+      ctx.kickChatMember(user.id);
+      notifyBannedUser(user, `forwarded message from blacklisted channel @${fwd_chat.username}`);
+      return;
+    }
+
+    const log_msg = `forwarded message from channel ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
+
+    if(!active_users[uid]) {
+      ctx.deleteMessage();
+      ctx.kickChatMember(user.id);
+      notifyBannedUser(user, log_msg);
+      return;
+    } else // log anyway
+      logMessage(`User ${user.str()} ${log_msg}`);
+  }
+
+  // Valid message
+  checkAutoreply(ctx, is_new_user);
+  active_users[uid] = now;
 });
 
 /* ************************************************** */
