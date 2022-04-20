@@ -261,7 +261,7 @@ async function checkAutoreply(ctx, is_new) {
         if(rinfo.autoquote)
           txt = `@` + ctx.message.from.username + " " + txt;
 
-        await ctx.reply(txt);
+        await ctx.replyWithMarkdown(txt, {disable_web_page_preview: true});
       }
 
       if(rinfo.overwrite)
