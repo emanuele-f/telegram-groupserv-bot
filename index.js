@@ -139,6 +139,14 @@ function periodicCleanup() {
 
 /* ************************************************** */
 
+function shouldBanBot(user) {
+  return config.BAN_BOTS &&
+      !config.WHITELISTED_BOT_IDS[user.id] &&
+      (user.username !== "GroupAnonymousBot");
+}
+
+/* ************************************************** */
+
 user.help((ctx) => {
   if(config.HELP)
     ctx.replyWithMarkdown(config.HELP);
@@ -178,16 +186,13 @@ user.on('new_chat_members', (ctx) => {
 
     console.log(`${user.str()} joined group`);
 
-    if(config.BAN_BOTS && user.is_bot) {
-      if(config.WHITELISTED_BOT_IDS[user.id])
-        continue;
-      else {
+    if(user.is_bot) {
+      if(shouldBanBot(user)) {
         console.log(`Banning bot ${user.str()}`);
         ctx.kickChatMember(user.id);
       }
-    }
-
-    new_users[new_user.id] = user;
+    } else
+      new_users[new_user.id] = user;
   }
 });
 
@@ -295,15 +300,6 @@ user.on('text', (ctx) => {
     return;
   }
 
-  // Check message from bot
-  if(config.BAN_BOTS && ctx.message.from.is_bot &&
-        !config.WHITELISTED_BOT_IDS[uid]) {
-    console.log(`Banning bot ${user.str()}`);
-    ctx.deleteMessage();
-    ctx.kickChatMember(user.id);
-    return;
-  }
-
   // Check if user is new
   if((user = new_users[uid])) {
     const delta_s = Math.floor((now - user.first_seen) / 1000);
@@ -313,6 +309,14 @@ user.on('text', (ctx) => {
     is_new_user = true;
   } else
     user = User.from_message(ctx.message.from, ctx.chat.id);
+
+  // Check message from bot
+  if(user.is_bot && shouldBanBot(user)) {
+    console.log(`Banning bot ${user.str()}`);
+    ctx.deleteMessage();
+    ctx.kickChatMember(user.id);
+    return;
+  }
 
   // Check blacklist
   if(!bl_word && is_new_user)
@@ -325,15 +329,6 @@ user.on('text', (ctx) => {
     ctx.deleteMessage();
     ctx.kickChatMember(uid);
     notifyBannedUser(user, `sent blacklisted word "${bl_word}"`);
-    return;
-  }
-
-  // Check for URLs
-  if(is_inactive_user && containsUrl(ctx.message)) {
-    console.log(`${user.str()} sent URL, starting verification`);
-    ctx.deleteMessage();
-
-    verifyUser(ctx, user);
     return;
   }
 
@@ -358,6 +353,15 @@ user.on('text', (ctx) => {
       return;
     } else // log anyway
       logMessage(`User ${user.str()} ${log_msg}`);
+  }
+
+  // Check for URLs
+  if(is_inactive_user && containsUrl(ctx.message)) {
+    console.log(`${user.str()} sent URL, starting verification`);
+    ctx.deleteMessage();
+
+    verifyUser(ctx, user);
+    return;
   }
 
   // Valid message
