@@ -346,7 +346,7 @@ user.on('text', (ctx) => {
 
     const log_msg = `forwarded message from channel ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
 
-    if(!active_users[uid]) {
+    if(config.BAN_FORWARDED_CHANNEL && !active_users[uid]) {
       ctx.deleteMessage();
       ctx.kickChatMember(user.id);
       notifyBannedUser(user, log_msg);
