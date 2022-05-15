@@ -69,6 +69,12 @@ admin.command('pending', (ctx) => {
 
 /* ************************************************** */
 
+admin.on('text', (ctx) => {
+  // Overridden to avoid applying moderation to admins
+});
+
+/* ************************************************** */
+
 async function verifyUser(ctx, user) {
   const msg = await ctx.reply(
     `Hi ${user.name}! Please click the button below.`,
@@ -311,10 +317,14 @@ user.on('text', (ctx) => {
     user = User.from_message(ctx.message.from, ctx.chat.id);
 
   // Check message from bot
-  if(user.is_bot && shouldBanBot(user)) {
-    console.log(`Banning bot ${user.str()}`);
-    ctx.deleteMessage();
-    ctx.kickChatMember(user.id);
+  if(user.is_bot) {
+    if(shouldBanBot(user)) {
+      console.log(`Banning bot ${user.str()}`);
+      ctx.deleteMessage();
+      ctx.kickChatMember(user.id);
+    }
+
+    // If bot is allowed, accept message
     return;
   }
 
