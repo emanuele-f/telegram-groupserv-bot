@@ -346,6 +346,9 @@ user.on('text', (ctx) => {
   const fwd_chat = ctx.message.forward_from_chat;
 
   if(fwd_chat && (fwd_chat.type === "channel")) {
+    if(config.WHITELISTED_CHANNELS.indexOf(fwd_chat.username) != -1)
+      return;
+
     // This message was forwarded from a channel, very likely spam
     if(isBlacklistedChannel(fwd_chat.username)) {
       ctx.deleteMessage();
@@ -357,9 +360,11 @@ user.on('text', (ctx) => {
     const log_msg = `forwarded message from channel ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
 
     if(config.BAN_FORWARDED_CHANNEL && !active_users[uid]) {
-      ctx.deleteMessage();
-      ctx.kickChatMember(user.id);
-      notifyBannedUser(user, log_msg);
+      if(uid != "777000") /* Telegram */ {
+        ctx.deleteMessage();
+        ctx.kickChatMember(user.id);
+        notifyBannedUser(user, log_msg);
+      }
       return;
     } else // log anyway
       logMessage(`User ${user.str()} ${log_msg}`);

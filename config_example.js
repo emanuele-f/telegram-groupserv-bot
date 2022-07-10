@@ -10,6 +10,7 @@ config.ACTIVE_USER_TIMEOUT = 86400;
 config.ADMIN_IDS = [];
 config.LOG_CHAT_IDS = [];
 config.BLACKLISTED_CHANNELS = [];
+config.WHITELISTED_CHANNELS = [];
 
 // ban new users
 config.SUSPICIOUS_WORDS = ["bitcoin", "ethereum", "crypto", "wallet"];
