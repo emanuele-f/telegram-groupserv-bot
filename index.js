@@ -71,6 +71,7 @@ admin.command('pending', (ctx) => {
 
 admin.on('text', (ctx) => {
   // Overridden to avoid applying moderation to admins
+  checkAutoreply(ctx, false);
 });
 
 /* ************************************************** */
