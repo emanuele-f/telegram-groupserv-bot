@@ -372,7 +372,7 @@ user.on('text', (ctx) => {
   }
 
   // Check for URLs
-  if(is_inactive_user && containsUrl(ctx.message)) {
+  if(config.VERIFY_HUMAN && is_inactive_user && containsUrl(ctx.message)) {
     console.log(`${user.str()} sent URL, starting verification`);
     ctx.deleteMessage();
 
