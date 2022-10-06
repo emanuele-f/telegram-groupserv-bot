@@ -9,6 +9,6 @@
   "author": "Emanuele Faranda",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "telegraf": "^4.9.2"
+    "telegraf": "^4.10.0"
   }
 }

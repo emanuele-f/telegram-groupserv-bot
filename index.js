@@ -281,17 +281,6 @@ async function checkAutoreply(ctx, is_new) {
 
 /* ************************************************** */
 
-function banUnverifiedUser(user) {
-  // If user has a pending verification (must click button), then ban him
-  console.warn(`${user.str()} (unverified)] says: ${ctx.message.text}`);
-
-  ctx.kickChatMember(user.id);
-  notifyBannedUser(user, "sent another message without verifying");
-  return;
-}
-
-/* ************************************************** */
-
 user.on('text', (ctx) => {
   const uid = ctx.message.from.id;
   let user = null;
@@ -302,8 +291,9 @@ user.on('text', (ctx) => {
 
   // Check message from pending-verification user
   if((user = pending_users[uid])) {
+    // delete its messages until he is verified
+    console.log(`${user.str()} (unverified)] says: ${ctx.message.text}`);
     ctx.deleteMessage();
-    banUnverifiedUser(user);
     return;
   }
 
