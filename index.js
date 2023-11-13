@@ -263,12 +263,18 @@ async function checkAutoreply(ctx, is_new) {
       console.debug(`Message matches a regex: ${msg}`);
 
       if(rinfo.text) {
+        const extras = {disable_web_page_preview: true};
         let txt = rinfo.text;
 
         if(rinfo.autoquote)
           txt = `@` + ctx.message.from.username + " " + txt;
+        else {
+          const reply_to = ctx.message.reply_to_message;
+          if(reply_to)
+            extras.reply_to_message_id = reply_to.message_id;
+        }
 
-        await ctx.replyWithMarkdown(txt, {disable_web_page_preview: true});
+        await ctx.replyWithMarkdown(txt, extras);
       }
 
       if(rinfo.overwrite)
