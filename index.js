@@ -20,12 +20,15 @@
 
 const { Telegraf, Markup, Composer } = require('telegraf');
 const User = require('./user');
+const isChinese = require('is-chinese');
 
 /* ************************************************** */
 
 const new_users = {};     // uid -> User
 const pending_users = {}; // uid -> User
 const active_users = {};  // uid -> last_seen
+const msgs_to_delete = []; // list of {deadline, message_id, chat_id}
+let autodeleteMsgs_t = null;
 
 /* ************************************************** */
 
@@ -71,7 +74,7 @@ admin.command('pending', (ctx) => {
 
 admin.on('text', (ctx) => {
   // Overridden to avoid applying moderation to admins
-  checkAutoreply(ctx, false);
+  checkAutoreply(ctx, null, false, false);
 });
 
 /* ************************************************** */
@@ -198,8 +201,10 @@ user.on('new_chat_members', (ctx) => {
         console.log(`Banning bot ${user.str()}`);
         ctx.kickChatMember(user.id);
       }
-    } else
+    } else {
       new_users[new_user.id] = user;
+      checkAutoreply(ctx, user, true, false);
+    }
   }
 });
 
@@ -218,6 +223,7 @@ user.on('left_chat_member', (ctx) => {
 
   delete new_users[user.id];
   delete pending_users[user.id];
+  delete active_users[user.id];
 });
 
 /* ************************************************** */
@@ -255,16 +261,53 @@ function containsUrl(msg) {
 
 /* ************************************************** */
 
-async function checkAutoreply(ctx, is_new) {
-  const msg = ctx.message.text;
+async function autodeleteMsgs(delete_all) {
+  const now = Date.now();
+
+  if (autodeleteMsgs_t) {
+    clearTimeout(autodeleteMsgs_t);
+    autodeleteMsgs_t = null;
+  }
+
+  let i = 0;
+
+  while ((i < msgs_to_delete.length) &&
+    (delete_all || (msgs_to_delete[i].deadline <= now))
+  ) {
+    const msg = msgs_to_delete[i];
+    await bot.telegram.deleteMessage(msg.chat_id, msg.message_id);
+    i++;
+  }
+
+  if (i > 0) {
+    console.debug(`Auto-deleted ${i} messages`);
+    msgs_to_delete.splice(0, i);
+  }
+
+  if (msgs_to_delete.length > 0)
+    autodeleteMsgs_t = setTimeout(autodeleteMsgs, now - msgs_to_delete[0].deadline);
+}
+
+/* ************************************************** */
+
+async function checkAutoreply(ctx, user, is_new, is_inactive) {
+  const msg = (ctx.message && ctx.message.text) ? ctx.message.text : "";
 
   for(const rinfo of config.AUTO_REPLY) {
-    if((is_new || !rinfo.new_only) && msg.match(rinfo.match)) {
+    if((is_new || !rinfo.new_only) &&
+        (is_inactive || !rinfo.inactive_only) &&
+        (!rinfo.match || msg.match(rinfo.match)) &&
+        (!rinfo.msg_lang || (rinfo.msg_lang === "cn" && isChinese(msg))) &&
+        (!rinfo.user_lang || (rinfo.user_lang === "cn" && user && isChinese(user.name)))
+    ) {
       console.debug(`Message matches a regex: ${msg}`);
 
       if(rinfo.text) {
         const extras = {disable_web_page_preview: true};
         let txt = rinfo.text;
+
+        if (rinfo.silent)
+          extras.disable_notification = true;
 
         if(rinfo.autoquote)
           txt = `@` + ctx.message.from.username + " " + txt;
@@ -274,7 +317,18 @@ async function checkAutoreply(ctx, is_new) {
             extras.reply_to_message_id = reply_to.message_id;
         }
 
-        await ctx.replyWithMarkdown(txt, extras);
+        const reply = await ctx.replyWithMarkdown(txt, extras);
+
+        if(rinfo.autodelete && (config.AUTODELETE_TIMEOUT > 0) && reply && reply.chat) {
+          if (msgs_to_delete.length === 0)
+            autodeleteMsgs_t = setTimeout(autodeleteMsgs, config.AUTODELETE_TIMEOUT * 1000);
+
+          msgs_to_delete.push({
+            deadline: Date.now() + config.AUTODELETE_TIMEOUT * 1000,
+            message_id: reply.message_id,
+            chat_id: reply.chat.id
+          });
+        }
       }
 
       if(rinfo.overwrite)
@@ -377,7 +431,7 @@ user.on('text', (ctx) => {
   }
 
   // Valid message
-  checkAutoreply(ctx, is_new_user);
+  checkAutoreply(ctx, user, is_new_user, is_inactive_user);
   active_users[uid] = now;
 });
 
@@ -391,5 +445,5 @@ bot.launch();
 console.log("Bot started");
 
 const periodicCleanup_t = setInterval(periodicCleanup, config.MAX_NEWUSER_AGE_SEC / 2 * 1000);
-process.once('SIGINT', () => {bot.stop('SIGINT'); clearInterval(periodicCleanup_t);} )
-process.once('SIGTERM', () => {bot.stop('SIGTERM'); clearInterval(periodicCleanup_t);} )
+process.once('SIGINT', () => {bot.stop('SIGINT'); clearInterval(periodicCleanup_t); autodeleteMsgs(true); } )
+process.once('SIGTERM', () => {bot.stop('SIGTERM'); clearInterval(periodicCleanup_t); autodeleteMsgs(true); } )
