@@ -25,7 +25,7 @@ const isChinese = require('is-chinese');
 /* ************************************************** */
 
 const new_users = {};     // uid -> User
-const pending_users = {}; // uid -> User
+const pending_users = {}; // uid -> {User, message_id, chat_id}
 const active_users = {};  // uid -> last_seen
 const msgs_to_delete = []; // list of {deadline, message_id, chat_id}
 let autodeleteMsgs_t = null;
@@ -63,7 +63,9 @@ admin.command('pending', (ctx) => {
 
   reply += `\n*Pending Verification*\n`;
 
-  for(const user of Object.values(pending_users)) {
+  for(const pending of Object.values(pending_users)) {
+    const user = pending.user;
+
     reply += `${user.getName()} (${user.id}) - ${(new Date(user.first_seen)).toLocaleString()}\n`;
   }
 
@@ -88,7 +90,11 @@ async function verifyUser(ctx, user) {
     ])
   );
 
-  pending_users[user.id] = user;
+  pending_users[user.id] = {
+    user: user,
+    message_id: msg.message_id,
+    chat_id: msg.chat && msg.chat.id,
+  };
 }
 
 /* ************************************************** */
@@ -129,7 +135,9 @@ function periodicCleanup() {
     }
   }
 
-  for(const user of Object.values(pending_users)) {
+  for(const pending of Object.values(pending_users)) {
+    const user = pending.user;
+
     if((now - user.first_seen) >= max_age) {
       delete pending_users[user.id];
       //bot.telegram.kickChatMember(user.chat_id, user.id);
@@ -169,10 +177,12 @@ user.action('user_confirm', (ctx) => {
   const uid = ctx.callbackQuery.from.id;
 
   ctx.answerCbQuery();
-  const user = pending_users[uid];
+  const pending = pending_users[uid];
 
-  if(!user)
+  if(!pending)
     return;
+
+  const user = pending.user;
 
   console.log(`${user.str()} verified`);
   delete pending_users[uid];
@@ -220,6 +230,11 @@ user.on('left_chat_member', (ctx) => {
       ctx.deleteMessage();
     } catch(e) {}
   }
+
+  // delete the verification message, if any
+  const pending = pending_users[user.id];
+  if (pending && pending.chat_id && pending.message_id)
+    bot.telegram.deleteMessage(pending.chat_id, pending.message_id);
 
   delete new_users[user.id];
   delete pending_users[user.id];
@@ -350,7 +365,9 @@ user.on('text', (ctx) => {
   const now = (new Date()).getTime();
 
   // Check message from pending-verification user
-  if((user = pending_users[uid])) {
+  if((pending = pending_users[uid])) {
+    const user = pending.user;
+
     // delete its messages until he is verified
     console.log(`${user.str()} (unverified)] says: ${ctx.message.text}`);
     ctx.deleteMessage();
