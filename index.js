@@ -332,7 +332,7 @@ async function checkAutoreply(ctx, user, is_new, is_inactive) {
           extras.disable_notification = true;
 
         if(rinfo.autoquote)
-          txt = `@` + ctx.message.from.username + " " + txt;
+          txt = User.from_message(ctx.message.from).getName() + " " + txt;
         else {
           const reply_to = ctx.message.reply_to_message;
           if(reply_to)
