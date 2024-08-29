@@ -25,7 +25,7 @@ const isChinese = require('is-chinese');
 /* ************************************************** */
 
 const new_users = {};     // uid -> User
-const pending_users = {}; // uid -> {User, message_id, chat_id}
+const pending_users = {}; // uid -> {User, message_id, chat_id, orig_message}
 const active_users = {};  // uid -> last_seen
 const msgs_to_delete = []; // list of {deadline, message_id, chat_id}
 let autodeleteMsgs_t = null;
@@ -81,19 +81,20 @@ admin.on('text', (ctx) => {
 
 /* ************************************************** */
 
-async function verifyUser(ctx, user) {
+async function verifyUser(ctx, user, orig_message) {
   const msg = await ctx.reply(
     `Hi ${user.name}! Please click the button below.`,
 
     Markup.inlineKeyboard([
       Markup.button.callback('Confirm', 'user_confirm')
-    ])
+    ]), {disable_notification: true}
   );
 
   pending_users[user.id] = {
     user: user,
     message_id: msg.message_id,
     chat_id: msg.chat && msg.chat.id,
+    orig_message: orig_message,
   };
 }
 
@@ -190,6 +191,12 @@ user.action('user_confirm', (ctx) => {
   ctx.deleteMessage(btn_msg.message_id);
 
   active_users[uid] = (new Date()).getTime();
+
+  if (pending.orig_message) {
+    // Send back the original message
+    const msg = "Original message from " + user.getName() + ": " + pending.orig_message;
+    ctx.reply(msg, {disable_web_page_preview: true});
+  }
 });
 
 /* ************************************************** */
@@ -441,9 +448,9 @@ user.on('text', (ctx) => {
   // Check for URLs
   if(config.VERIFY_HUMAN && is_inactive_user && containsUrl(ctx.message)) {
     console.log(`${user.str()} sent URL, starting verification`);
-    ctx.deleteMessage();
 
-    verifyUser(ctx, user);
+    verifyUser(ctx, user, ctx.message.text);
+    ctx.deleteMessage();
     return;
   }
 
