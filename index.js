@@ -393,7 +393,14 @@ user.on('text', (ctx) => {
 
   // Check message from bot
   if(user.is_bot) {
-    if(shouldBanBot(user)) {
+    if (user.username === "Channel_Bot") {
+      // Message posted by a channel
+      const sender_chat = ctx.message.sender_chat;
+      console.log(`Banning ${sender_chat.type} ${sender_chat.title} - ${sender_chat.username} (${sender_chat.id})`);
+
+      ctx.deleteMessage();
+      ctx.banChatSenderChat(sender_chat.id);
+    } else if(shouldBanBot(user)) {
       console.log(`Banning bot ${user.str()}`);
       ctx.deleteMessage();
       ctx.kickChatMember(user.id);
