@@ -19,8 +19,8 @@
  */
 
 const { Telegraf, Markup, Composer } = require('telegraf');
+const { isSimplifiedChinese } = require('./is_chinese.js')
 const User = require('./user');
-const isChinese = require('is-chinese');
 
 /* ************************************************** */
 
@@ -250,15 +250,29 @@ user.on('left_chat_member', (ctx) => {
 
 /* ************************************************** */
 
+function checkForInvisibleChars(wordlist) {
+  for(const word of wordlist) {
+    if (word.match(/\uFE0F/g))
+      console.warn(`Invisible character present in wordlist: ${word}`)
+  }
+}
+
+/* ************************************************** */
+
 function getBlacklistedWord(text, wordlist) {
   for(const word of wordlist) {
-    const r = new RegExp("\\b" + word + "\\b", 'ig');
+    if (word.startsWith('@') || isSimplifiedChinese(word)) {
+      // word matching is hard with Chinese, use just a contains check
+      // also @ (e.g. for channel names) does not play well with word boundaries
+      if (text.includes(word))
+        return word;
+    } else {
+      const r = new RegExp("\\b" + word + "\\b", 'ig');
 
-    if(text.match(r))
-      return word;
+      if(text.match(r))
+        return word;
+    }
   }
-
-  return false;
 }
 
 /* ************************************************** */
@@ -319,8 +333,8 @@ async function checkAutoreply(ctx, user, is_new, is_inactive) {
     if((is_new || !rinfo.new_only) &&
         (is_inactive || !rinfo.inactive_only) &&
         (!rinfo.match || msg.match(rinfo.match)) &&
-        (!rinfo.msg_lang || (rinfo.msg_lang === "cn" && isChinese(msg))) &&
-        (!rinfo.user_lang || (rinfo.user_lang === "cn" && user && isChinese(user.name)))
+        (!rinfo.msg_lang || (rinfo.msg_lang === "cn" && isSimplifiedChinese(msg))) &&
+        (!rinfo.user_lang || (rinfo.user_lang === "cn" && user && isSimplifiedChinese(user.name)))
     ) {
       console.debug(`Message matches a regex: ${msg}`);
 
@@ -467,6 +481,9 @@ user.on('text', (ctx) => {
 });
 
 /* ************************************************** */
+
+checkForInvisibleChars(config.SUSPICIOUS_WORDS)
+checkForInvisibleChars(config.BLACKLISTED_WORDS)
 
 // https://github.com/telegraf/telegraf/issues/441
 bot.use(Composer.acl(config.ADMIN_IDS, admin));
