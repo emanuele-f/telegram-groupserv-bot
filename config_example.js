@@ -1,6 +1,7 @@
 const config = {};
 
 config.BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
+config.DEBUG_MESSAGES = false;
 config.BAN_BOTS = true;
 config.VERIFY_HUMAN = true;
 config.BAN_FORWARDED_CHANNEL = true;

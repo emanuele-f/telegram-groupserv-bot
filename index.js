@@ -424,6 +424,9 @@ user.on('text', (ctx) => {
     return;
   }
 
+  if (config.DEBUG_MESSAGES)
+    console.log(JSON.stringify(ctx.message, null, 2));
+
   // Check blacklist
   if(!bl_word && is_new_user)
     bl_word = getBlacklistedWord(ctx.message.text, config.SUSPICIOUS_WORDS);
