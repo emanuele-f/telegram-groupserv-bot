@@ -442,7 +442,7 @@ user.on('text', (ctx) => {
   }
 
   // Check for forwarded messages from channels
-  const fwd_chat = ctx.message.forward_from_chat;
+  let fwd_chat = ctx.message.forward_from_chat;
   if (!fwd_chat && ctx.message.external_reply)
     // Check for the "external reply" trick to bypass forwards detection
     fwd_chat = ctx.message.external_reply.chat
