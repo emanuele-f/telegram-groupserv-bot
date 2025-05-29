@@ -473,7 +473,11 @@ user.on('text', (ctx) => {
   }
 
   // Check for URLs
-  if(config.VERIFY_HUMAN && is_inactive_user && msgNeedsVerification(ctx.message)) {
+  if(config.VERIFY_HUMAN &&
+     is_inactive_user &&
+     (!user.username || !config.WHITELISTED_USERS[user.username]) &&
+     msgNeedsVerification(ctx.message))
+  {
     console.log(`${user.str()} sent URL, starting verification`);
 
     verifyUser(ctx, user, ctx.message.text);
