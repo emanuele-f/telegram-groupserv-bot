@@ -283,12 +283,12 @@ function isBlacklistedChannel(channel) {
 
 /* ************************************************** */
 
-function containsUrl(msg) {
+function msgNeedsVerification(msg) {
   if(!msg.entities)
     return false;
 
   for(const entity of msg.entities) {
-    if((entity.type === "url") || (entity.type === "text_link"))
+    if((entity.type === "url") || (entity.type === "text_link") || (entity.type === "mention"))
       return true;
   }
 
@@ -473,7 +473,7 @@ user.on('text', (ctx) => {
   }
 
   // Check for URLs
-  if(config.VERIFY_HUMAN && is_inactive_user && containsUrl(ctx.message)) {
+  if(config.VERIFY_HUMAN && is_inactive_user && msgNeedsVerification(ctx.message)) {
     console.log(`${user.str()} sent URL, starting verification`);
 
     verifyUser(ctx, user, ctx.message.text);
