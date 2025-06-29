@@ -447,7 +447,7 @@ user.on('text', (ctx) => {
     // Check for the "external reply" trick to bypass forwards detection
     fwd_chat = ctx.message.external_reply.chat
 
-  if(fwd_chat && (fwd_chat.type === "channel")) {
+  if(fwd_chat && (fwd_chat.type !== "private")) { // channel, group, supergroup
     if(config.WHITELISTED_CHANNELS.indexOf(fwd_chat.username) != -1)
       return;
 
@@ -455,11 +455,11 @@ user.on('text', (ctx) => {
     if(isBlacklistedChannel(fwd_chat.username)) {
       ctx.deleteMessage();
       ctx.kickChatMember(user.id);
-      notifyBannedUser(user, `forwarded message from blacklisted channel @${fwd_chat.username}`);
+      notifyBannedUser(user, `forwarded message from blacklisted channel/group @${fwd_chat.username}`);
       return;
     }
 
-    const log_msg = `forwarded message from channel ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
+    const log_msg = `forwarded message from channel/group ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
 
     if(config.BAN_FORWARDED_CHANNEL && !active_users[uid]) {
       if(uid != "777000") /* Telegram */ {
