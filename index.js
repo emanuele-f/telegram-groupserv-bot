@@ -287,9 +287,14 @@ function msgNeedsVerification(msg) {
   if(!msg.entities)
     return false;
 
-  for(const entity of msg.entities) {
-    if((entity.type === "url") || (entity.type === "text_link") || (entity.type === "mention"))
-      return true;
+  for (const entityArray of [msg.entities, msg.caption_entities]) {
+    if (!entityArray)
+      continue;
+
+    for(const entity of entityArray) {
+      if((entity.type === "url") || (entity.type === "text_link") || (entity.type === "mention"))
+        return true;
+    }
   }
 
   return false;
@@ -377,20 +382,21 @@ async function checkAutoreply(ctx, user, is_new, is_inactive) {
 
 /* ************************************************** */
 
-user.on('text', (ctx) => {
+const handleMessage = (ctx) => {
   const uid = ctx.message.from.id;
   let user = null;
   let bl_word = null;
   let is_new_user = false;
   const is_inactive_user = !active_users[uid];
   const now = (new Date()).getTime();
+  const text = ctx.message.text || ctx.message.caption || "";
 
   // Check message from pending-verification user
   if((pending = pending_users[uid])) {
     const user = pending.user;
 
     // delete its messages until he is verified
-    console.log(`${user.str()} (unverified)] says: ${ctx.message.text}`);
+    console.log(`${user.str()} (unverified)] says: ${text}`);
     ctx.deleteMessage();
     return;
   }
@@ -398,7 +404,7 @@ user.on('text', (ctx) => {
   // Check if user is new
   if((user = new_users[uid])) {
     const delta_s = Math.floor((now - user.first_seen) / 1000);
-    console.log(`${user.str()} first message after ${delta_s}s: ${ctx.message.text}`);
+    console.log(`${user.str()} first message after ${delta_s}s: ${text}`);
 
     delete new_users[uid];
     is_new_user = true;
@@ -429,10 +435,10 @@ user.on('text', (ctx) => {
 
   // Check blacklist
   if(!bl_word && is_new_user)
-    bl_word = getBlacklistedWord(ctx.message.text, config.SUSPICIOUS_WORDS);
+    bl_word = getBlacklistedWord(text, config.SUSPICIOUS_WORDS);
 
   if(!bl_word && is_inactive_user)
-    bl_word = getBlacklistedWord(ctx.message.text, config.BLACKLISTED_WORDS);
+    bl_word = getBlacklistedWord(text, config.BLACKLISTED_WORDS);
 
   if(bl_word) {
     ctx.deleteMessage();
@@ -459,7 +465,7 @@ user.on('text', (ctx) => {
       return;
     }
 
-    const log_msg = `forwarded message from channel/group ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${ctx.message.text}`;
+    const log_msg = `forwarded message from channel/group ${fwd_chat.title} (@${fwd_chat.username} ${fwd_chat.id}): ${text}`;
 
     if(config.BAN_FORWARDED_CHANNEL && !active_users[uid]) {
       if(uid != "777000") /* Telegram */ {
@@ -480,7 +486,7 @@ user.on('text', (ctx) => {
   {
     console.log(`${user.str()} sent URL, starting verification`);
 
-    verifyUser(ctx, user, ctx.message.text);
+    verifyUser(ctx, user, text);
     ctx.deleteMessage();
     return;
   }
@@ -488,7 +494,16 @@ user.on('text', (ctx) => {
   // Valid message
   checkAutoreply(ctx, user, is_new_user, is_inactive_user);
   active_users[uid] = now;
-});
+};
+
+// https://telegraf.js.org/classes/Telegraf-1.html#on.on-2
+user.on('text', handleMessage);
+user.on('photo', handleMessage);
+user.on('video', handleMessage);
+user.on('video_note', handleMessage);
+user.on('voice', handleMessage);
+user.on('document', handleMessage);
+user.on('story', handleMessage);
 
 /* ************************************************** */
 
