@@ -6,6 +6,7 @@ config.BAN_BOTS = true;
 config.VERIFY_HUMAN = true;
 config.WHITELISTED_USERS = {};
 config.BAN_FORWARDED_CHANNEL = true;
+config.BAN_CHINESE_SPAM = true;
 config.DELETE_JOIN_MESSAGE = true;
 config.WHITELISTED_BOT_IDS = {};
 config.MAX_NEWUSER_AGE_SEC = 3600;

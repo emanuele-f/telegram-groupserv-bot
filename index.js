@@ -433,6 +433,13 @@ const handleMessage = (ctx) => {
   if (config.DEBUG_MESSAGES)
     console.log(JSON.stringify(ctx.message, null, 2));
 
+  if(config.BAN_CHINESE_SPAM && ctx.message.photo && text.includes("@") && isSimplifiedChinese(text)) {
+    ctx.deleteMessage();
+    ctx.kickChatMember(uid);
+    notifyBannedUser(user, `chinese spam "${text}"`);
+    return;
+  }
+
   // Check blacklist
   if(!bl_word && is_new_user)
     bl_word = getBlacklistedWord(text, config.SUSPICIOUS_WORDS);
