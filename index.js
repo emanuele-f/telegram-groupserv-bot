@@ -195,7 +195,7 @@ user.action('user_confirm', (ctx) => {
   if (pending.orig_message) {
     // Send back the original message
     const msg = "Original message from " + user.getName() + ": " + pending.orig_message;
-    ctx.reply(msg, {disable_web_page_preview: true});
+    ctx.reply(msg, {link_preview_options: {is_disabled: true}});
   }
 });
 
@@ -344,7 +344,7 @@ async function checkAutoreply(ctx, user, is_new, is_inactive) {
       console.debug(`Message matches a regex: ${msg}`);
 
       if(rinfo.text) {
-        const extras = {disable_web_page_preview: true};
+        const extras = {link_preview_options: {is_disabled: true}};
         let txt = rinfo.text;
 
         if (rinfo.silent)
@@ -355,7 +355,7 @@ async function checkAutoreply(ctx, user, is_new, is_inactive) {
         else {
           const reply_to = ctx.message.reply_to_message;
           if(reply_to)
-            extras.reply_to_message_id = reply_to.message_id;
+            extras.reply_parameters = {message_id: reply_to.message_id};
         }
 
         const reply = await ctx.replyWithMarkdown(txt, extras);
